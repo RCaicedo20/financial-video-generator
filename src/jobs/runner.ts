@@ -1,7 +1,8 @@
 import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { copyFile, mkdir } from 'node:fs/promises';
 import { config } from '../config.js';
 import { synthesizeMusic, synthesizeSpeech } from '../audio/elevenlabs.js';
+import { synthesizeProxySpeech } from '../audio/proxyTts.js';
 import type { FactRegistry } from '../financial/factRegistry.js';
 import { formatFact } from '../financial/factRegistry.js';
 import type { Storyboard } from '../storytelling/storyboard.js';
@@ -67,7 +68,9 @@ async function runJob(job: Job, storyboard: Storyboard, facts: FactRegistry): Pr
       seconds = Math.max(11, Math.ceil(narration.split(/\s+/).length / 2.6) + 2);
     } else {
       const filename = path.join(folder, `scene-${index}.mp3`);
-      const audio = await synthesizeSpeech(narration, filename);
+      const audio = config.AUDIO_MODE === 'proxy'
+        ? await synthesizeProxySpeech(narration, filename)
+        : await synthesizeSpeech(narration, filename);
       seconds = audio.durationSeconds + 0.8;
       audioUrl = `${config.PUBLIC_BASE_URL}/internal-assets/${job.jobId}/scene-${index}.mp3`;
     }
@@ -84,13 +87,20 @@ async function runJob(job: Job, storyboard: Storyboard, facts: FactRegistry): Pr
     throw new Error(`Narration duration ${Math.ceil(totalSeconds)}s exceeds the ${config.MAX_VIDEO_SECONDS}s limit. Shorten the storyboard and try again.`);
   }
   let musicUrl: string | null = null;
-  if (!config.DEMO_MODE && config.AUDIO_MODE === 'elevenlabs' && config.GENERATE_MUSIC) {
+  if (!config.DEMO_MODE && config.GENERATE_MUSIC) {
     job.status = 'generating_music';
     try {
-      await synthesizeMusic(totalSeconds, path.join(folder, 'music.mp3'));
+      const musicDestination = path.join(folder, 'music.mp3');
+      if (config.MUSIC_FILE.trim()) {
+        await copyFile(path.resolve(config.MUSIC_FILE), musicDestination);
+      } else if (config.AUDIO_MODE === 'elevenlabs') {
+        await synthesizeMusic(totalSeconds, musicDestination);
+      } else {
+        throw new Error('No music source configured.');
+      }
       musicUrl = `${config.PUBLIC_BASE_URL}/internal-assets/${job.jobId}/music.mp3`;
     } catch {
-      job.warnings.push('Music generation failed; continuing with narration only.');
+      job.warnings.push('Music not available; continuing with narration only. Check MUSIC_FILE or ElevenLabs account.');
     }
   }
   job.status = 'rendering'; job.progress = 65;

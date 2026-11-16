@@ -13,7 +13,10 @@ const EnvSchema = z.object({
   LLM_JSON_MODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   LLM_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(2).default(1),
 
-  AUDIO_MODE: z.enum(['none', 'elevenlabs']).default('none'),
+  AUDIO_MODE: z.enum(['none', 'elevenlabs', 'proxy']).default('none'),
+  PROXY_TTS_MODEL: z.string().default('eleven-flash-v2.5'),
+  PROXY_TTS_VOICE: z.string().default('alloy'),
+  MUSIC_FILE: z.string().default(''),
   ELEVENLABS_API_KEY: z.string().default(''),
   ELEVENLABS_VOICE_ID: z.string().default(''),
   ELEVENLABS_TTS_MODEL: z.string().default('eleven_multilingual_v2'),
@@ -33,7 +36,7 @@ export function validateLiveConfig(): void {
   if (config.AUDIO_MODE === 'elevenlabs' && (!config.ELEVENLABS_API_KEY || !config.ELEVENLABS_VOICE_ID)) {
     throw new Error('Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID when AUDIO_MODE=elevenlabs.');
   }
-  if (config.GENERATE_MUSIC && config.AUDIO_MODE !== 'elevenlabs') {
-    throw new Error('GENERATE_MUSIC=true requires AUDIO_MODE=elevenlabs in this implementation.');
+  if (config.GENERATE_MUSIC && !config.MUSIC_FILE.trim() && config.AUDIO_MODE !== 'elevenlabs') {
+    throw new Error('For proxy audio, GENERATE_MUSIC=true requires MUSIC_FILE pointing to an instrumental MP3.');
   }
 }
