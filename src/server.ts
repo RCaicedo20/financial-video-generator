@@ -6,7 +6,7 @@ import { registerRoutes } from './api/routes.js';
 validateLiveConfig();
 const app = Fastify({
   logger: {
-    redact: ['req.headers.x-llm-api-key', 'req.headers.authorization'],
+    redact: ['req.headers.authorization', 'req.headers.x-llm-api-key'],
   },
   bodyLimit: 7 * 1024 * 1024,
 });

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "tsc",
-    "start:built": "node dist/server.js"
+    "start:built": "node dist/server.js",
+    "llm:check": "tsx scripts/check-llm.ts"
   },
   "engines": {
     "node": ">=20.11"

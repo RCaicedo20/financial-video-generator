@@ -6,7 +6,7 @@ A **local-first, mobile-oriented** REST API that converts two financial JSON rep
 
 - ✅ Validates the sample v2 JSON contract and household identity
 - ✅ Extracts financial facts, records origin and interpretation, and rejects conflicting duplicate values
-- ✅ Accepts a client-supplied **OpenAI** API key per request, without persisting it to a job
+- ✅ Uses the **team AI key in server-side `.env`** with the Sherpaswealth OpenAI-compatible LLM proxy; clients send only three files
 - ✅ Generates a constrained storyboard and checks numeric placeholders
 - ✅ Generates ElevenLabs speech with duration information; optional Eleven Music soundtrack
 - ✅ Renders a 1080 × 1920 H.264 video using Remotion
@@ -62,44 +62,47 @@ Invoke-WebRequest "http://127.0.0.1:3000/api/v1/videos/$jobId/download" -OutFile
 
 Demo mode **does not speak**. It renders captions and animations, and is meant to verify the pipeline without using paid external APIs.
 
-### Generate narrated videos with client-provided OpenAI key
+### Generate a personalized silent video with the hackathon LLM proxy
 
 Set:
 
 ```dotenv
 DEMO_MODE=false
-OPENAI_MODEL=gpt-4.1-mini
-ELEVENLABS_API_KEY=your_server_elevenlabs_key
-ELEVENLABS_VOICE_ID=your_voice_id
-GENERATE_MUSIC=true
+LLM_BASE_URL=https://llm-hackathon.sherpaswealth.com/v1
+LLM_API_KEY=your_TEAM_ai_key
+LLM_MODEL=deepseek-flash
+LLM_JSON_MODE=false
+LLM_MAX_ATTEMPTS=1
+AUDIO_MODE=none
+GENERATE_MUSIC=false
 ```
 
-Restart the server. Set the client's OpenAI key in the current PowerShell session (or in an API client such as Postman), then submit:
+Do not put the personal MCP token in `LLM_API_KEY`; the team LLM key is different.
+
+Test the proxy with a single small paid call:
 
 ```powershell
-$env:CLIENT_OPENAI_API_KEY = "paste_your_client_api_key_here"
-$result = curl.exe -s -X POST http://127.0.0.1:3000/api/v1/videos `
-  -H "X-LLM-API-Key: $env:CLIENT_OPENAI_API_KEY" `
-  -F "financialHealth=@examples/financial-health.json" `
-  -F "investmentAnalysis=@examples/investment-analysis.json" `
-  -F "persona=@examples/persona.md" | ConvertFrom-Json
-$result
+npm run llm:check
 ```
 
-This MVP supports **OpenAI only** for LLM generation, not arbitrary providers. Other LLM adapters can be added later. The client's key is used only to generate the storyboard before the job is queued. ElevenLabs uses the service's own key from `.env`.
+Restart the server (`npm run dev`), then submit **the same multipart request as the demo** (no extra API-key header). When the job completes, download the MP4. This uses the hackathon LLM for the story, but keeps audio silent until an ElevenLabs path is set up.
+
+To use **direct ElevenLabs** for voice, set `AUDIO_MODE=elevenlabs`, `ELEVENLABS_API_KEY=...`, and `ELEVENLABS_VOICE_ID=...`. The organizers' proxy lists ElevenLabs voice model IDs, but its API path and compatibility with our existing ElevenLabs timestamps endpoint were **not provided**. This starter does not yet route ElevenLabs via the hackathon proxy. Music also requires direct ElevenLabs support and is disabled by default.
+
+Read [Hackathon proxy guide](docs/HACKATHON-PROXY.md) for model selection, rate/credit limits, voice limitations, and detailed troubleshooting.
 
 ## API contract
 
 | Endpoint | Meaning |
 |---|---|
 | `GET /health` | Health check |
-| `POST /api/v1/videos` | Multipart files `financialHealth`, `investmentAnalysis`, `persona`; client API key in `X-LLM-API-Key` in live mode |
+| `POST /api/v1/videos` | Multipart files `financialHealth`, `investmentAnalysis`, `persona`; team LLM key is configured on the server |
 | `GET /api/v1/videos/:jobId` | Poll job state: queued, generating_audio, generating_music, rendering, completed, failed |
 | `GET /api/v1/videos/:jobId/download` | Returns MP4 when completed |
 
 `POST` returns HTTP 202 with `{jobId,status,statusUrl}`. The endpoint performs **LLM storyboard generation before returning 202** in live mode, so the initial request can be relatively slow. An external client must set a generous timeout.
 
-The resulting video is **1080 × 1920, 9:16, 30 fps, max 180 seconds**. A job fails when synthesized audio exceeds the duration limit; it is never silently trimmed. Optional music failure is a non-fatal warning.
+The resulting video is **1080 × 1920, 9:16, 30 fps, max 180 seconds**. When `AUDIO_MODE=none`, the job uses estimated scene timing, captions, and no narration/audio charges. A job fails when synthesized audio exceeds the duration limit; it is never silently trimmed. Optional music failure is a non-fatal warning.
 
 ## Source modules
 
@@ -189,6 +192,6 @@ The resulting video is **1080 × 1920, 9:16, 30 fps, max 180 seconds**. A job fa
 ### Suggested next improvements
 
 1. Run and confirm demo MP4 on your Windows machine.
-2. Test live OpenAI + ElevenLabs with dedicated development keys.
-3. Add more visual compositions, dynamic subtitle segments, and richer persona rules.
+2. Test the hackathon proxy with `npm run llm:check`, then generate an LLM-personalized silent MP4.
+3. Verify the hackathon audio API documentation, or configure direct ElevenLabs to add narration. Then improve visual compositions and captions.
 4. Introduce privacy, authentication, storage retention, durable jobs and review controls before production.

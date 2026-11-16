@@ -21,10 +21,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!contentType.includes('multipart/form-data')) {
       return reply.code(415).send({ error: 'Use multipart/form-data.' });
     }
-    const clientKey = request.headers['x-llm-api-key'];
-    if (!config.DEMO_MODE && (typeof clientKey !== 'string' || !clientKey.trim())) {
-      return reply.code(400).send({ error: 'X-LLM-API-Key header is required when DEMO_MODE=false.' });
-    }
     const files = new Map<string, Buffer>();
     try {
       for await (const part of request.parts()) {
@@ -41,8 +37,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       const json = (name: string) => JSON.parse(files.get(name)!.toString('utf8')) as unknown;
       const input = validateDocuments(json('financialHealth'), json('investmentAnalysis'), files.get('persona')!.toString('utf8'));
       const facts = createFactRegistry(input);
-      // The client API key is only used here; it is never saved to the job queue/disk.
-      const storyboard = await generateStoryboard(input, facts, typeof clientKey === 'string' ? clientKey : undefined);
+      // The TEAM LLM key stays on the server in .env; callers upload only the three documents.
+      const storyboard = await generateStoryboard(input, facts);
       const jobId = randomUUID();
       const job = submitJob(jobId, storyboard, facts);
       return reply.code(202).send({ jobId, status: job.status, statusUrl: `/api/v1/videos/${jobId}` });
@@ -57,7 +53,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(422).send({ error: message });
       }
       request.log.error({ err: error instanceof Error ? error.name : 'Error' }, 'Video job submission failed');
-      return reply.code(502).send({ error: 'Storyboard generation failed. Check LLM access/model and input validity.' });
+      return reply.code(502).send({ error: 'Storyboard generation failed. Check the team proxy key, model access, credit balance, and input validity.' });
     }
   });
 

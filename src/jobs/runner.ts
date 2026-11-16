@@ -62,8 +62,8 @@ async function runJob(job: Job, storyboard: Storyboard, facts: FactRegistry): Pr
     const narration = renderNarration(storyScene, facts);
     let seconds: number;
     let audioUrl: string | null = null;
-    if (config.DEMO_MODE) {
-      // A visual-only preview: captions are shown, but no spoken audio is generated.
+    if (config.DEMO_MODE || config.AUDIO_MODE === 'none') {
+      // Silent preview / proxy-only test: captions are shown, no speech API is called.
       seconds = Math.max(11, Math.ceil(narration.split(/\s+/).length / 2.6) + 2);
     } else {
       const filename = path.join(folder, `scene-${index}.mp3`);
@@ -84,7 +84,7 @@ async function runJob(job: Job, storyboard: Storyboard, facts: FactRegistry): Pr
     throw new Error(`Narration duration ${Math.ceil(totalSeconds)}s exceeds the ${config.MAX_VIDEO_SECONDS}s limit. Shorten the storyboard and try again.`);
   }
   let musicUrl: string | null = null;
-  if (!config.DEMO_MODE && config.GENERATE_MUSIC) {
+  if (!config.DEMO_MODE && config.AUDIO_MODE === 'elevenlabs' && config.GENERATE_MUSIC) {
     job.status = 'generating_music';
     try {
       await synthesizeMusic(totalSeconds, path.join(folder, 'music.mp3'));
