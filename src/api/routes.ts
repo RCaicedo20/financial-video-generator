@@ -1,5 +1,3 @@
-// Import Modules
-
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -11,8 +9,6 @@ import { createFactRegistry } from '../financial/factRegistry.js';
 import { getJob, submitJob } from '../jobs/runner.js';
 import { generateStoryboard } from '../storytelling/generate.js';
 import { validateDocuments } from '../validation/documents.js';
-
-
 
 const uploadFields = ['financialHealth', 'investmentAnalysis', 'persona'] as const;
 const idRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
